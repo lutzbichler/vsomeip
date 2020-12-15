@@ -22,10 +22,10 @@ elif [ "$COMMUNICATIONMODE" = "UDP" ]; then
 fi
 
 
-../daemon/./vsomeipd &
+../examples/routingmanagerd/./routingmanagerd &
 PID_VSOMEIPD=$!
 
-./event_test_service &
+./event_test_service $COMMUNICATIONMODE &
 PID_SERVICE=$!
 
 # Wait until all clients and services are finished

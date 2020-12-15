@@ -3,26 +3,27 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#ifndef VSOMEIP_E2E_PROFILE01_PROTECTOR_HPP
-#define VSOMEIP_E2E_PROFILE01_PROTECTOR_HPP
+#ifndef VSOMEIP_V3_E2E_PROFILE01_PROTECTOR_HPP
+#define VSOMEIP_V3_E2E_PROFILE01_PROTECTOR_HPP
 
 #include <mutex>
+
 #include "../profile01/profile_01.hpp"
 #include "../profile_interface/protector.hpp"
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 namespace e2e {
 namespace profile01 {
 
 class protector final : public e2e::profile_interface::protector {
-  public:
+public:
     protector(void) = delete;
 
-    explicit protector(const profile_config &_config) : config_(_config), counter_(0){};
+    explicit protector(const profile_config &_config) : config_(_config), counter_(0) {};
 
-    void protect(e2e_buffer &_buffer) override final;
+    void protect(e2e_buffer &_buffer, instance_t _instance) override final;
 
-  private:
+private:
 
     void write_counter(e2e_buffer &_buffer);
 
@@ -32,8 +33,7 @@ class protector final : public e2e::profile_interface::protector {
 
     void increment_counter(void);
 
-
-  private:
+private:
     profile_config config_;
     uint8_t counter_;
     std::mutex protect_mutex_;
@@ -41,6 +41,6 @@ class protector final : public e2e::profile_interface::protector {
 
 } // namespace profile01
 } // namespace e2e
-} // namespace vsomeip
+} // namespace vsomeip_v3
 
-#endif // VSOMEIP_E2E_PROFILE01_PROTECTOR_HPP
+#endif // VSOMEIP_V3_E2E_PROFILE01_PROTECTOR_HPP

@@ -12,34 +12,10 @@
 
 if [ $# -lt 2 ]
 then
-    echo "Please pass a subscription method to this script."
-    echo "For example: $0 UDP subscribe_notify_one_test_diff_client_ids_diff_ports_slave.json"
-    echo "Valid subscription types include:"
-    echo "            [TCP_AND_UDP, PREFER_UDP, PREFER_TCP, UDP, TCP]"
-    echo "Please pass a json file to this script."
-    echo "For example: $0 UDP subscribe_notify_one_test_diff_client_ids_diff_ports_slave.json"
+    echo "Please pass a json file and event reliability type to this script."
+    echo "For example: $0 UDP subscribe_notify_one_test_diff_client_ids_diff_ports_slave_udp.json"
     exit 1
 fi
-
-# Make sure only valid subscription types are passed to the script
-SUBSCRIPTION_TYPES="TCP_AND_UDP PREFER_UDP PREFER_TCP UDP TCP"
-VALID=0
-for valid_subscription_type in $SUBSCRIPTION_TYPES
-do
-    if [ $valid_subscription_type == $1 ]
-    then
-        VALID=1
-    fi
-done
-
-if [ $VALID -eq 0 ]
-then
-    echo "Invalid subscription type passed, valid types are:"
-    echo "            [TCP_AND_UDP, PREFER_UDP, PREFER_TCP, UDP, TCP]"
-    echo "Exiting"
-    exit 1
-fi
-
 
 FAIL=0
 # Start the services

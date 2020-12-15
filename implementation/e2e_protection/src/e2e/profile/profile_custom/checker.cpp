@@ -4,23 +4,27 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "../../../../../e2e_protection/include/e2e/profile/profile_custom/checker.hpp"
-#include "../../../../../logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <iomanip>
 #include <algorithm>
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 namespace e2e {
 namespace profile_custom {
 
 void profile_custom_checker::check(const e2e_buffer &_buffer,
-                                   e2e::profile_interface::generic_check_status &_generic_check_status) {
+        instance_t _instance,
+        e2e::profile_interface::check_status_t &_generic_check_status) {
+
+    (void)_instance;
+
     std::lock_guard<std::mutex> lock(check_mutex_);
     _generic_check_status = e2e::profile_interface::generic_check_status::E2E_ERROR;
 
-   if (profile_custom::is_buffer_length_valid(config_, _buffer)) {
+    if (profile_custom::is_buffer_length_valid(config_, _buffer)) {
         uint32_t received_crc(0);
         uint32_t calculated_crc(0);
 
@@ -34,7 +38,6 @@ void profile_custom_checker::check(const e2e_buffer &_buffer,
                     << (uint32_t) calculated_crc << " received CRC: " << (uint32_t) received_crc;
         }
     }
-    return;
 }
 
 uint32_t profile_custom_checker::read_crc(const e2e_buffer &_buffer) const {
@@ -46,4 +49,4 @@ uint32_t profile_custom_checker::read_crc(const e2e_buffer &_buffer) const {
 
 } // namespace profile_custom
 } // namespace e2e
-} // namespace vsomeip
+} // namespace vsomeip_v3

@@ -14,7 +14,7 @@
 #include <utility>
 
 #include <vsomeip/vsomeip.hpp>
-#include "../../implementation/logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 
 #include <gtest/gtest.h>
 
@@ -65,17 +65,24 @@ public:
         // the service offers three events in two eventgroups
         // one of the events is in both eventgroups (info_.event_id + 2)
         its_groups.insert(info_.eventgroup_id);
-        app_->request_event(info_.service_id, info_.instance_id, info_.event_id, its_groups, true);
         app_->request_event(info_.service_id, info_.instance_id,
-                static_cast<vsomeip::event_t>(info_.event_id + 2), its_groups, true);
+                info_.event_id, its_groups,
+                vsomeip::event_type_e::ET_FIELD,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
+        app_->request_event(info_.service_id, info_.instance_id,
+                static_cast<vsomeip::event_t>(info_.event_id + 2),
+                its_groups, vsomeip::event_type_e::ET_FIELD,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         its_groups.erase(info_.eventgroup_id);
         its_groups.insert(static_cast<vsomeip::eventgroup_t>(info_.eventgroup_id +1));
         app_->request_event(info_.service_id, info_.instance_id,
-                static_cast<vsomeip::event_t>(info_.event_id+1), its_groups, true);
+                static_cast<vsomeip::event_t>(info_.event_id+1),
+                its_groups, vsomeip::event_type_e::ET_FIELD,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         app_->request_event(info_.service_id, info_.instance_id,
-                static_cast<vsomeip::event_t>(info_.event_id+2), its_groups, true);
-
-
+                static_cast<vsomeip::event_t>(info_.event_id+2),
+                its_groups, vsomeip::event_type_e::ET_FIELD,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
 
         return true;
     }
@@ -154,7 +161,9 @@ public:
             std::lock_guard<std::mutex> its_lock(events_mutex_);
             received_events_.push_back(_response->get_payload());
             if (received_events_.size() > 4) {
-                ADD_FAILURE() << "Received too much events";
+                ADD_FAILURE() << "Received too many events ["
+                        << std::hex << _response->get_method()
+                        << " (" << std::dec << received_events_.size() << ")";
             }
             number_received_events_[_response->get_method()]++;
             events_condition_.notify_one();
@@ -268,7 +277,6 @@ public:
 
             check_received_events_number(its_expected);
             its_expected.clear();
-
             // set value again
             set_field_at_service(0x2);
             {
@@ -284,7 +292,6 @@ public:
 
             check_received_events_number(its_expected);
             its_expected.clear();
-
 
             // set value again
             set_field_at_service(0x3);
@@ -366,8 +373,8 @@ int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     if(argc < 2) {
-        std::cerr << "Please specify a subscription type, like: " << argv[0] << " UDP" << std::endl;
-        std::cerr << "Valid subscription types include:" << std::endl;
+        std::cerr << "Please specify a offer type of the service, like: " << argv[0] << " UDP" << std::endl;
+        std::cerr << "Valid offer types include:" << std::endl;
         std::cerr << "[UDP, TCP]" << std::endl;
         return 1;
     }

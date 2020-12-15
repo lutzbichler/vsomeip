@@ -15,7 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <vsomeip/vsomeip.hpp>
-#include "../../implementation/logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 
 #include "initial_event_test_globals.hpp"
 
@@ -28,7 +28,6 @@ public:
             service_infos_(_service_infos),
             app_(vsomeip::runtime::get()->create_application()),
             wait_until_registered_(true),
-            wait_until_other_services_available_(true),
             wait_for_stop_(true),
             stop_thread_(std::bind(&initial_event_test_availability_checker::wait_for_stop, this)) {
         if (!app_->init()) {
@@ -117,7 +116,6 @@ private:
     std::map<std::pair<vsomeip::service_t, vsomeip::instance_t>, bool> other_services_available_;
 
     bool wait_until_registered_;
-    bool wait_until_other_services_available_;
     std::mutex mutex_;
     std::condition_variable condition_;
 
@@ -154,10 +152,13 @@ int main(int argc, char** argv)
 
     client_number = std::stoi(std::string(argv[1]), nullptr);
 
-    if (argc >= 3 && std::string("SAME_SERVICE_ID") == std::string(argv[2])) {
-        use_same_service_id = true;
-    } else {
-        use_same_service_id = false;
+    if (argc >= 2) {
+        for (int i = 2; i < argc; i++) {
+            if (std::string("SAME_SERVICE_ID") == std::string(argv[i])) {
+                use_same_service_id = true;
+                std::cout << "Availability checker: Using same service ID" << std::endl;
+            }
+        }
     }
     return RUN_ALL_TESTS();
 }

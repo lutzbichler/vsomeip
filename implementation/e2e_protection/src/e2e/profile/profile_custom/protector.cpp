@@ -4,7 +4,6 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "../../../../../e2e_protection/include/e2e/profile/profile_custom/protector.hpp"
-#include "../../../../../logging/include/logger.hpp"
 
 #include <iostream>
 #include <sstream>
@@ -13,11 +12,14 @@
 #include <iostream>
 #include <sstream>
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 namespace e2e {
 namespace profile_custom {
 
-void protector::protect(e2e_buffer &_buffer) {
+void protector::protect(e2e_buffer &_buffer, instance_t _instance) {
+
+    (void)_instance;
+
     std::lock_guard<std::mutex> lock(protect_mutex_);
 
     if (profile_custom::is_buffer_length_valid(config_, _buffer)) {
@@ -37,4 +39,4 @@ void protector::write_crc(e2e_buffer &_buffer, uint32_t _computed_crc) {
 
 } // namespace profile_custom
 } // namespace e2e
-} // namespace vsomeip
+} // namespace vsomeip_v3

@@ -14,7 +14,7 @@
 #include <atomic>
 
 #include <gtest/gtest.h>
-#include "../../implementation/logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 
 #include <vsomeip/vsomeip.hpp>
 
@@ -22,11 +22,12 @@
 
 class subscribe_notify_test_one_event_two_eventgroups_service {
 public:
-    subscribe_notify_test_one_event_two_eventgroups_service(subscribe_notify_test::service_info _info) :
+    subscribe_notify_test_one_event_two_eventgroups_service(subscribe_notify_test::service_info _info, bool _use_tcp) :
             app_(vsomeip::runtime::get()->create_application()),
             wait_for_shutdown_(true),
             info_(_info),
-            notify_thread_(std::bind(&subscribe_notify_test_one_event_two_eventgroups_service::wait_for_shutdown, this)) {
+            notify_thread_(std::bind(&subscribe_notify_test_one_event_two_eventgroups_service::wait_for_shutdown, this)),
+            use_tcp_(_use_tcp) {
     }
 
     ~subscribe_notify_test_one_event_two_eventgroups_service() {
@@ -68,15 +69,30 @@ public:
         // one of the events is in both eventgroups
         its_groups.insert(info_.eventgroup_id);
         app_->offer_event(info_.service_id, info_.instance_id,
-                info_.event_id, its_groups, true);
+                info_.event_id, its_groups, vsomeip::event_type_e::ET_FIELD,
+                std::chrono::milliseconds::zero(),
+                false, true, nullptr,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         app_->offer_event(info_.service_id, info_.instance_id,
-                 static_cast<vsomeip::event_t>(info_.event_id + 2), its_groups, true);
+                 static_cast<vsomeip::event_t>(info_.event_id + 2),
+                 its_groups, vsomeip::event_type_e::ET_FIELD,
+                 std::chrono::milliseconds::zero(),
+                 false, true, nullptr,
+                 (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         its_groups.erase(info_.eventgroup_id);
         its_groups.insert(static_cast<vsomeip::eventgroup_t>(info_.eventgroup_id + 1));
         app_->offer_event(info_.service_id, info_.instance_id,
-                static_cast<vsomeip::event_t>(info_.event_id + 1), its_groups, true);
+                static_cast<vsomeip::event_t>(info_.event_id + 1),
+                its_groups, vsomeip::event_type_e::ET_FIELD,
+                std::chrono::milliseconds::zero(),
+                false, true, nullptr,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         app_->offer_event(info_.service_id, info_.instance_id,
-                static_cast<vsomeip::event_t>(info_.event_id + 2), its_groups, true);
+                static_cast<vsomeip::event_t>(info_.event_id + 2),
+                its_groups, vsomeip::event_type_e::ET_FIELD,
+                std::chrono::milliseconds::zero(),
+                false, true, nullptr,
+                (use_tcp_ ? vsomeip::reliability_type_e::RT_RELIABLE : vsomeip::reliability_type_e::RT_UNRELIABLE));
         payload_ = vsomeip::runtime::get()->create_payload();
 
         return true;
@@ -125,7 +141,7 @@ public:
         std::shared_ptr<vsomeip::message> its_response
             = vsomeip::runtime::get()->create_response(_message);
         its_response->set_payload(payload_);
-        app_->send(its_response, true);
+        app_->send(its_response);
         {
             std::lock_guard<std::mutex> its_lock(shutdown_mutex_);
             wait_for_shutdown_ = false;
@@ -138,14 +154,14 @@ public:
             = vsomeip::runtime::get()->create_response(_message);
         payload_ = _message->get_payload();
         its_response->set_payload(payload_);
-        app_->send(its_response, true);
+        app_->send(its_response);
         app_->notify(info_.service_id, info_.instance_id, info_.event_id, payload_);
         app_->notify(info_.service_id, info_.instance_id, static_cast<vsomeip::event_t>(info_.event_id + 1), payload_);
         app_->notify(info_.service_id, info_.instance_id, static_cast<vsomeip::event_t>(info_.event_id + 2), payload_);
     }
 
     void on_message(const std::shared_ptr<vsomeip::message> &_message) {
-        app_->send(vsomeip::runtime::get()->create_response(_message),true);
+        app_->send(vsomeip::runtime::get()->create_response(_message));
     }
 
     void wait_for_shutdown() {
@@ -175,6 +191,7 @@ private:
     subscribe_notify_test::service_info info_;
 
     std::thread notify_thread_;
+    bool use_tcp_;
 };
 
 #ifndef VSOMEIP_ENABLE_SIGNAL_HANDLING
@@ -186,11 +203,12 @@ private:
     }
 #endif
 
+static bool use_tcp;
 
 TEST(someip_subscribe_notify_test_one_event_two_eventgroups, wait_for_attribute_set)
 {
     subscribe_notify_test_one_event_two_eventgroups_service its_service(
-            subscribe_notify_test::service_info_subscriber_based_notification);
+            subscribe_notify_test::service_info_subscriber_based_notification, use_tcp);
 #ifndef VSOMEIP_ENABLE_SIGNAL_HANDLING
     its_service_ptr = &its_service;
     signal(SIGINT, handle_signal);
@@ -205,6 +223,24 @@ TEST(someip_subscribe_notify_test_one_event_two_eventgroups, wait_for_attribute_
 int main(int argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
+    if(argc < 2) {
+        std::cerr << "Please specify a offer type of the service, like: " << argv[0] << " UDP" << std::endl;
+        std::cerr << "Valid offer types include:" << std::endl;
+        std::cerr << "[UDP, TCP]" << std::endl;
+        return 1;
+    }
+
+    if(std::string("TCP") == std::string(argv[1])) {
+        use_tcp = true;
+    } else if(std::string("UDP") == std::string(argv[1])) {
+        use_tcp = false;
+    } else {
+        std::cerr << "Wrong subscription type passed, exiting" << std::endl;
+        std::cerr << "Valid subscription types include:" << std::endl;
+        std::cerr << "[UDP, TCP]" << std::endl;
+        return 1;
+    }
+
     return RUN_ALL_TESTS();
 }
 #endif

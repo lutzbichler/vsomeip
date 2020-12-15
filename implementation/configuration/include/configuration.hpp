@@ -3,40 +3,52 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-#ifndef VSOMEIP_CONFIGURATION_HPP
-#define VSOMEIP_CONFIGURATION_HPP
+#ifndef VSOMEIP_V3_CONFIGURATION_HPP
+#define VSOMEIP_V3_CONFIGURATION_HPP
 
 #include <map>
 #include <memory>
 #include <set>
 #include <string>
+#include <chrono>
 
 #include <boost/asio/ip/address.hpp>
-#include <boost/log/trivial.hpp>
+#include <boost/icl/interval_set.hpp>
 
 #include <vsomeip/export.hpp>
 #include <vsomeip/defines.hpp>
 #include <vsomeip/plugin.hpp>
 #include <vsomeip/primitive_types.hpp>
 
-#include "internal.hpp"
 #include "trace.hpp"
 
 #include "../../e2e_protection/include/e2exf/config.hpp"
 #include "e2e.hpp"
-#include "policy.hpp"
 
 #include "debounce.hpp"
 
+#ifdef ANDROID
+#include "internal_android.hpp"
+#else
+#include "internal.hpp"
+#endif // ANDROID
+
+#include "../../security/include/policy.hpp"
+
 #define VSOMEIP_CONFIG_PLUGIN_VERSION              1
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 
 class event;
 
 class configuration {
 public:
-    virtual ~configuration() {}
+    virtual ~configuration()
+#ifndef ANDROID
+    {}
+#else
+    ;
+#endif
 
     virtual bool load(const std::string &_name) = 0;
     virtual bool remote_offer_info_add(service_t _service,
@@ -55,8 +67,9 @@ public:
 
     virtual const boost::asio::ip::address & get_unicast_address() const = 0;
     virtual const boost::asio::ip::address& get_netmask() const = 0;
-    virtual unsigned short get_diagnosis_address() const = 0;
-    virtual std::uint16_t get_diagnosis_mask() const = 0;
+    virtual const std::string &get_device() const = 0;
+    virtual diagnosis_t get_diagnosis_address() const = 0;
+    virtual diagnosis_t get_diagnosis_mask() const = 0;
     virtual bool is_v4() const = 0;
     virtual bool is_v6() const = 0;
 
@@ -64,7 +77,7 @@ public:
     virtual bool has_file_log() const = 0;
     virtual bool has_dlt_log() const = 0;
     virtual const std::string & get_logfile() const = 0;
-    virtual boost::log::trivial::severity_level get_loglevel() const = 0;
+    virtual logger::level_e get_loglevel() const = 0;
 
     virtual const std::string & get_routing_host() const = 0;
 
@@ -76,6 +89,24 @@ public:
             uint16_t _port) const = 0;
     virtual uint16_t get_unreliable_port(service_t _service,
             instance_t _instance) const = 0;
+
+    virtual major_version_t get_major_version(service_t _service,
+            instance_t _instance) const = 0;
+    virtual minor_version_t get_minor_version(service_t _service,
+            instance_t _instance) const = 0;
+    virtual ttl_t get_ttl(service_t _service,
+            instance_t _instance) const = 0;
+
+    virtual void get_configured_timing_requests(
+            service_t _service, std::string _ip_target,
+            std::uint16_t _port_target, method_t _method,
+            std::chrono::nanoseconds *_debounce_time,
+            std::chrono::nanoseconds *_max_retention_time) const = 0;
+    virtual void get_configured_timing_responses(
+            service_t _service, std::string _ip_service,
+            std::uint16_t _port_service, method_t _method,
+            std::chrono::nanoseconds *_debounce_time,
+            std::chrono::nanoseconds *_max_retention_time) const = 0;
 
     virtual bool is_someip(service_t _service, instance_t _instance) const = 0;
 
@@ -99,10 +130,14 @@ public:
     virtual std::size_t get_io_thread_count(const std::string &_name) const = 0;
     virtual int get_io_thread_nice_level(const std::string &_name) const = 0;
     virtual std::size_t get_request_debouncing(const std::string &_name) const = 0;
+#ifdef VSOMEIP_HAS_SESSION_HANDLING_CONFIG
+    virtual bool has_session_handling(const std::string &_name) const = 0;
+#endif // VSOMEIP_HAS_SESSION_HANDLING_CONFIG
 
     virtual std::uint32_t get_max_message_size_local() const = 0;
     virtual std::uint32_t get_max_message_size_reliable(const std::string& _address,
                                                     std::uint16_t _port) const = 0;
+    virtual std::uint32_t get_max_message_size_unreliable() const = 0;
     virtual std::uint32_t get_buffer_shrink_threshold() const = 0;
 
     virtual bool supports_selective_broadcasts(boost::asio::ip::address _address) const = 0;
@@ -111,7 +146,10 @@ public:
 
     virtual bool is_local_service(service_t _service, instance_t _instance) const = 0;
 
-    virtual bool is_event_reliable(service_t _service, instance_t _instance, event_t _event) const = 0;
+    virtual reliability_type_e get_event_reliability(
+            service_t _service, instance_t _instance, event_t _event) const = 0;
+    virtual reliability_type_e get_service_reliability(
+            service_t _service, instance_t _instance) const = 0;
 
     // Service Discovery configuration
     virtual bool is_sd_enabled() const = 0;
@@ -120,8 +158,8 @@ public:
     virtual uint16_t get_sd_port() const = 0;
     virtual const std::string & get_sd_protocol() const = 0;
 
-    virtual int32_t get_sd_initial_delay_min() const = 0;
-    virtual int32_t get_sd_initial_delay_max() const = 0;
+    virtual uint32_t get_sd_initial_delay_min() const = 0;
+    virtual uint32_t get_sd_initial_delay_max() const = 0;
     virtual int32_t get_sd_repetitions_base_delay() const = 0;
     virtual uint8_t get_sd_repetitions_max() const = 0;
     virtual ttl_t get_sd_ttl() const = 0;
@@ -143,23 +181,6 @@ public:
 
     virtual bool log_version() const = 0;
     virtual uint32_t get_log_version_interval() const = 0;
-
-    // Security
-    virtual bool is_security_enabled() const = 0;
-    virtual bool is_client_allowed(client_t _client, service_t _service,
-            instance_t _instance, method_t _method, bool _is_request_service = false) const = 0;
-    virtual bool is_offer_allowed(client_t _client, service_t _service,
-            instance_t _instance) const = 0;
-    virtual bool check_credentials(client_t _client,
-            uint32_t _uid, uint32_t _gid) = 0;
-    virtual bool store_client_to_uid_gid_mapping(client_t _client, uint32_t _uid, uint32_t _gid) = 0;
-    virtual void store_uid_gid_to_client_mapping(uint32_t _uid, uint32_t _gid, client_t _client) = 0;
-
-    virtual bool get_client_to_uid_gid_mapping(client_t _client,
-            std::pair<uint32_t, uint32_t> &_uid_gid) = 0;
-    virtual bool remove_client_to_uid_gid_mapping(client_t _client) = 0;
-    virtual bool get_uid_gid_to_client_mapping(std::pair<uint32_t, uint32_t> _uid_gid,
-            std::set<client_t> &_clients) = 0;
 
     // Plugins
     virtual std::map<plugin_type_e, std::set<std::string>> get_plugins(
@@ -196,37 +217,64 @@ public:
     virtual std::uint32_t get_max_tcp_restart_aborts() const = 0;
     virtual std::uint32_t get_max_tcp_connect_time() const = 0;
 
-    // Offer acceptance
-    virtual bool offer_acceptance_required(
+    // Acceptance handling
+    virtual bool is_protected_device(
             const boost::asio::ip::address& _address) const = 0;
-    virtual void set_offer_acceptance_required(
-            const boost::asio::ip::address& _address, const std::string& _path,
-            bool _enable) = 0;
-    virtual std::map<boost::asio::ip::address, std::string> get_offer_acceptance_required() = 0;
+    virtual bool is_protected_port(
+            const boost::asio::ip::address& _address, std::uint16_t _port,
+            bool _reliable) const = 0;
+    virtual bool is_secure_port(
+                const boost::asio::ip::address& _address, std::uint16_t _port,
+                bool _reliable) const = 0;
 
-    // Security policy
-    virtual void update_security_policy(uint32_t _uid, uint32_t _gid, ::std::shared_ptr<policy> _policy) = 0;
-    virtual bool remove_security_policy(uint32_t _uid, uint32_t _gid) = 0;
+    typedef std::pair<std::uint16_t, std::uint16_t> port_range_t;
+    virtual void set_sd_acceptance_rule(
+            const boost::asio::ip::address &_address,
+            port_range_t _port_range, port_type_e _type,
+            const std::string &_path, bool _reliable, bool _enable, bool _default) = 0;
 
-    virtual void add_security_credentials(uint32_t _uid, uint32_t _gid,
-            ::std::shared_ptr<policy> _credentials_policy, client_t _client) = 0;
+    typedef std::map<
+        boost::asio::ip::address, // other device
+        std::pair<
+            std::string, // path to file that determines whether or not IPsec is active
+            std::map<
+                bool, // false = unreliable (aka UDP), true = reliable (aka TCP)
+                std::pair<
+                    boost::icl::interval_set<std::uint16_t>, // optional (aka semi-secure) port range
+                    boost::icl::interval_set<std::uint16_t>  // secure port range
+                >
+            >
+        >
+    > sd_acceptance_rules_t;
+    virtual void set_sd_acceptance_rules(const sd_acceptance_rules_t& _rules,
+                                         bool _enable) = 0;
+    virtual sd_acceptance_rules_t get_sd_acceptance_rules() = 0;
+    virtual void set_sd_acceptance_rules_active(
+            const boost::asio::ip::address& _address, bool _enable) = 0;
 
-    virtual bool is_remote_client_allowed() const = 0;
-
-    virtual bool is_policy_update_allowed(uint32_t _uid, std::shared_ptr<policy> &_policy) const = 0;
-
-    virtual bool is_policy_removal_allowed(uint32_t _uid) const = 0;
+    virtual bool is_secure_service(service_t _service, instance_t _instance) const = 0;
 
     virtual std::uint32_t get_udp_receive_buffer_size() const = 0;
 
-    virtual bool is_audit_mode_enabled() const = 0;
-
     virtual bool check_routing_credentials(client_t _client, uint32_t _uid, uint32_t _gid) const = 0;
+
+    // SOME/IP-TP
+    virtual bool tp_segment_messages_client_to_service(
+            service_t _service, std::string _ip_target,
+            std::uint16_t _port_target, method_t _method) const = 0;
+    virtual bool tp_segment_messages_service_to_client(
+            service_t _service, std::string _ip_service,
+            std::uint16_t _port_service, method_t _method) const = 0;
 
     // routing shutdown timeout
     virtual std::uint32_t get_shutdown_timeout() const = 0;
+
+    virtual bool log_statistics() const = 0;
+    virtual uint32_t get_statistics_interval() const = 0;
+    virtual uint32_t get_statistics_min_freq() const = 0;
+    virtual uint32_t get_statistics_max_messages() const = 0;
 };
 
-} // namespace vsomeip
+} // namespace vsomeip_v3
 
-#endif // VSOMEIP_CONFIGURATION_HPP
+#endif // VSOMEIP_V3_CONFIGURATION_HPP

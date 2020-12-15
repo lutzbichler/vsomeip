@@ -4,19 +4,22 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "../../../../../e2e_protection/include/e2e/profile/profile01/protector.hpp"
-#include "../../../../../logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <iomanip>
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 namespace e2e {
 namespace profile01 {
 
 /** @req [SWS_E2E_00195] */
-void protector::protect(e2e_buffer &_buffer) {
+void protector::protect(e2e_buffer &_buffer, instance_t _instance) {
+
+    (void)_instance;
+
     std::lock_guard<std::mutex> lock(protect_mutex_);
 
     if (profile_01::is_buffer_length_valid(config_, _buffer)) {
@@ -76,4 +79,4 @@ void protector::increment_counter(void) {
 
 } // namespace profile01
 } // namespace e2e
-} // namespace vsomeip
+} // namespace vsomeip_v3

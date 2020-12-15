@@ -4,20 +4,23 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "../../../../../e2e_protection/include/e2e/profile/profile01/checker.hpp"
-#include "../../../../../logging/include/logger.hpp"
+#include <vsomeip/internal/logger.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <iomanip>
 #include <algorithm>
 
-namespace vsomeip {
+namespace vsomeip_v3 {
 namespace e2e {
 namespace profile01 {
 
 // [SWS_E2E_00196]
-void profile_01_checker::check(const e2e_buffer &_buffer,
-                               e2e::profile_interface::generic_check_status &_generic_check_status) {
+void profile_01_checker::check(const e2e_buffer &_buffer, instance_t _instance,
+        e2e::profile_interface::check_status_t &_generic_check_status) {
+
+    (void)_instance;
+
     std::lock_guard<std::mutex> lock(check_mutex_);
     _generic_check_status = e2e::profile_interface::generic_check_status::E2E_ERROR;
 
@@ -34,9 +37,8 @@ void profile_01_checker::check(const e2e_buffer &_buffer,
                     << (uint32_t) calculated_crc << " received CRC: " << (uint32_t) received_crc;
         }
     }
-    return;
 }
 
 } // namespace profile01
 } // namespace e2e
-} // namespace vsomeip
+} // namespace vsomeip_v3
